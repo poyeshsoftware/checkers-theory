@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Combinatorial Divergence in Draughts: English 8x8 Short Kings vs International 10x10 Flying Kings and Majority Capture</title>
+  <meta name="description" content="A deep mathematical comparison of 8x8 American Checkers and 10x10 International Draughts: branching factor divergence, sliding king mechanics (dames), majority capture optimization, and bitboard raycasting.">
+  <link rel="canonical" href="https://poyeshsoftware.github.io/checkers-theory/draughts-variants-combinatorics.html">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --heading: #f0f6fc;
+      --accent: #58a6ff;
+      --muted: #8b949e;
+      --code-bg: #0d1117;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+    .back-nav {
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+    }
+    .back-nav a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .back-nav a:hover {
+      text-decoration: underline;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 32px;
+      margin-bottom: 40px;
+    }
+    h1 {
+      color: var(--heading);
+      font-size: 2.3rem;
+      line-height: 1.25;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    h2 {
+      color: var(--heading);
+      font-size: 1.55rem;
+      margin-top: 40px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    p {
+      margin-bottom: 20px;
+    }
+    ul, ol {
+      margin-bottom: 24px;
+      padding-left: 28px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #79c0ff;
+    }
+    pre {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      overflow-x: auto;
+      margin-bottom: 24px;
+    }
+    pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+    }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    footer {
+      margin-top: 64px;
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="back-nav">
+    <a href="index.html">&larr; Return to Checkers Theory Research Index</a>
+  </div>
+
+  <header>
+    <h1>Combinatorial Divergence in Draughts: English 8x8 Short Kings vs International 10x10 Flying Kings and Majority Capture</h1>
+    <div class="meta">
+      <span>Published by Poyesh Tabletop Theory Lab</span> &middot; 
+      <span>Combinatorial Game Theory Series</span> &middot; 
+      <span>State Space Complexity & Geometric Variants</span>
+    </div>
+  </header>
+
+  <main>
+    <h2>1. Introduction: The Asymmetry of Board Geometries</h2>
+    <p>While the lay public frequently considers "checkers" a singular monolithic game, the family of draughts games exhibits profound game-theoretic divergence based on grid dimensions and piece movement constraints. The two dominant international standards—<strong>English Draughts (American Checkers)</strong> played on an 8x8 grid with 12 pieces per side, and <strong>International Draughts</strong> played on a 10x10 grid with 20 pieces per side—represent entirely distinct complexity classes.</p>
+    <p>While American 8x8 checkers was conclusively solved as a theoretical draw by Jonathan Schaeffer's Chinook team in 2007 (encompassing a state space of ~5 &times; 10<sup>20</sup> reachable configurations), International 10x10 draughts possesses an estimated state-space complexity of approximately <strong>10<sup>54</sup></strong> and a game-tree complexity exceeding <strong>10<sup>115</sup></strong>. Understanding why these two systems diverge so radically requires analyzing the mechanical interplay between grid scale, short vs flying kings, and the majority capture constraint.</p>
+
+    <h2>2. King Mobility: Short Step vs Long Diagonal Flying Kings</h2>
+    <p>The most consequential mechanical divergence between the two rulesets lies in the capability of crowned kings:</p>
+    <ul>
+      <li><strong>American Checkers (Short Kings):</strong> In the 8x8 game, a king gains the ability to move backward, but its step distance remains strictly bounded to exactly one diagonal square. Furthermore, jumping is bounded to immediate adjacent squares: a king jumps an adjacent enemy piece to land on the immediate square beyond.</li>
+      <li><strong>International Draughts (Flying Kings / Dames):</strong> In the 10x10 international game, a crowned king (known as a <em>Dame</em>) becomes a long-range sliding piece analogous to a chess bishop. It can slide along open diagonal rays across any number of unoccupied squares. When capturing, a flying king can leap over an opposing piece at arbitrary diagonal distance, and upon landing, it can stop on any vacant square along that ray, potentially executing right-angle turns to chain multi-capture trajectories across the entire 100-square board.</li>
+    </ul>
+    <p>From an algorithmic evaluation standpoint, flying kings dramatically inflate the game's branching factor. In an 8x8 endgame, a king possesses a maximum of 4 legal quiet moves. In a 10x10 endgame, a single flying king on the central long diagonal (squares 5 to 46) can command up to 13 legal destination squares in a single ply, fundamentally changing alpha-beta search depth frontiers.</p>
+
+    <h2>3. Capture Precedence: Freedom of Choice vs The Majority Rule</h2>
+    <p>A second critical divergence is how the mandatory capture rule resolves competing jump options:</p>
+    <pre><code>American 8x8 Rule:
+  IF legal jumps exist:
+    Player MUST jump.
+    IF multiple jump paths exist (e.g., jump 1 piece vs jump 3 pieces):
+      Player may choose ANY valid jump path.
+
+International 10x10 Rule (Majority Capture):
+  IF legal jumps exist:
+    Player MUST jump.
+    IF multiple jump paths exist:
+      Player MUST select the path that captures the GREATEST NUMBER of pieces.
+      (Quality of pieces does NOT matter; 3 men > 2 kings).</code></pre>
+    <p>The majority capture constraint introduces deep tactical volatility. A player can sacrifice two pieces to force an opponent into capturing them, purely because that forced sequence deflects the opponent's defending piece away from a critical king-row square or triggers a catastrophic counter-capture sequence of five opposing pieces.</p>
+
+    <h2>4. Bitboard Engineering across 8x8 and 10x10 Grids</h2>
+    <p>In digital engine architecture, the board representation dictates search throughput:</p>
+    <p>In 8x8 draughts, the 32 playable dark squares fit neatly into a single 32-bit unsigned CPU register (<code>uint32</code>). Raycasting and single-step jump detections are executed via single-cycle bitwise shifts (<code>&gt;&gt; 4</code>, <code>&gt;&gt; 3</code>, <code>&gt;&gt; 5</code>).</p>
+    <p>In 10x10 draughts, the 50 playable dark squares exceed 32 bits, requiring 64-bit integer bitmasks (<code>uint64</code>) or split dual-word representations. Furthermore, because flying kings can slide across multiple vacancies before and after jumping, move generation cannot rely on simple constant-offset shifts. Instead, modern engines employ <strong>Magic Bitboards</strong> or precomputed diagonal attack tables indexed by occupancy bitmasks.</p>
+    <p>Modern open tabletop engines such as <a href="https://boardgammon.com/checkers/" target="_blank" rel="noopener">Boardgammon Checkers</a> implement cross-platform variant abstractions, mapping 8x8 grids onto 32-bit words and 10x10 international configurations onto 64-bit unsigned integers to achieve sub-millisecond legal move validation in WebAssembly without compromising platform portability.</p>
+
+    <h2>5. Algorithmic Solving Horizons</h2>
+    <p>Could International 10x10 Draughts ever be solved in the manner of Chinook?</p>
+    <p>Current computational consensus is that an exhaustive retrograde solution of 10x10 draughts is mathematically unattainable with classical computer architectures. While Chinook's 39-trillion state tablebase accounted for all positions with &le; 10 pieces on 32 squares, a 10-piece tablebase on 50 squares contains approximately 10<sup>16</sup> positions; computing a 20-piece tablebase would require storage exceeding the atomic matter of the solar system.</p>
+    <p>Instead, modern 10x10 engines (such as Damy, Truus, and Scan) rely on deep alpha-beta search with transposition tables, singular extensions, and deep neural network value evaluators (analogous to chess NNUE), demonstrating that larger board geometries preserve rich human and algorithmic competition well beyond the horizon of brute-force solving.</p>
+
+    <h2>6. Conclusion</h2>
+    <p>The contrast between English 8x8 checkers and International 10x10 draughts illustrates the exquisite sensitivity of combinatorial game theory to initial geometric axioms. By expanding the grid by just two ranks and files and empowering kings with diagonal flight and majority capture, the game transitions from a solved mathematical equilibrium into an expansive, unconquered computational universe.</p>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 Poyesh Tabletop Theory Lab &middot; Dedicated to Combinatorial Game Mathematics and Software Architecture.</p>
+  </footer>
+</body>
+</html>
